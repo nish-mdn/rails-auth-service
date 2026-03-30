@@ -72,13 +72,6 @@ persistent_timeout 20
 # Worker timeout (seconds) - default is 60
 worker_timeout 60
 
-# Connection pool size
-max_threads = Integer(ENV['RAILS_MAX_THREADS'] || 16)
-min_threads = Integer(ENV['RAILS_MIN_THREADS'] || 2)
-
-# Backlog size
-backlog 256
-
 # Tag each request with an ID
 #tag_requests true
 
