@@ -57,6 +57,9 @@ ENV RACK_ENV=production
 ENV RAILS_LOG_TO_STDOUT=true
 ENV RAILS_SERVE_STATIC_FILES=true
 
+# Verify and prepare gems with deployment flag (uses pre-resolved Gemfile.lock)
+RUN bundle install --deployment --without development test
+
 # Switch to rails user
 USER rails
 
