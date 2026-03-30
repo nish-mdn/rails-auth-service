@@ -1,30 +1,12 @@
-# Multi-stage Dockerfile for Rails Auth Service
-# Optimized for AWS self-managed Kubernetes cluster
+# Single-stage Dockerfile for Rails Auth Service
+FROM public.ecr.aws/docker/library/ruby:3.2.0-slim
 
-# Stage 1: Builder
-FROM public.ecr.aws/docker/library/ruby:3.2.0-slim AS builder
-
-# Install build dependencies
+# Install all dependencies
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
     build-essential \
     git \
     libmariadb-dev \
     pkg-config \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-
-# Copy Gemfile and Gemfile.lock
-COPY Gemfile Gemfile.lock* ./
-
-# Install gems
-RUN bundle install --jobs 4 --retry 3 --without development test
-
-# Stage 2: Runtime
-FROM public.ecr.aws/docker/library/ruby:3.2.0-slim
-
-# Install runtime dependencies
-RUN apt-get update -qq && apt-get install -y --no-install-recommends \
     libmariadb3 \
     default-mysql-client \
     curl \
@@ -35,33 +17,23 @@ RUN useradd -m -u 1000 rails
 
 WORKDIR /app
 
-# Copy Gemfile from source
-COPY --chown=rails:rails Gemfile ./
+# Copy Gemfile and Gemfile.lock
+COPY --chown=rails:rails Gemfile Gemfile.lock* ./
 
-# Copy Gemfile.lock from builder (created during bundle install in builder stage)
-COPY --from=builder /app/Gemfile.lock ./
-
-# Copy gems from builder
-COPY --from=builder /usr/local/bundle /usr/local/bundle
+# Install gems
+RUN bundle install --jobs 4 --retry 3 --without development test
 
 # Copy application code
 COPY --chown=rails:rails . .
 
 # Create necessary directories
 RUN mkdir -p /app/log /app/tmp/pids /app/tmp/cache /app/tmp/sockets
-RUN chown -R rails:rails /app
 
-# Set environment variables (bundler will find gems in BUNDLE_PATH)
+# Set environment variables
 ENV RAILS_ENV=production
-ENV BUNDLE_PATH=/usr/local/bundle
-ENV BUNDLE_GEMFILE=/app/Gemfile
-ENV PATH="/app/bin:${PATH}"
 ENV RACK_ENV=production
 ENV RAILS_LOG_TO_STDOUT=true
 ENV RAILS_SERVE_STATIC_FILES=true
-
-# Configure bundler to find the pre-installed gems (run as root before switching to rails user)
-RUN bundle config set --local path /usr/local/bundle
 
 # Switch to rails user
 USER rails
