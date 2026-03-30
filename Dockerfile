@@ -51,4 +51,4 @@ RUN chmod +x /app/docker-entrypoint.sh
 
 # Start application
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
-CMD ["bundle", "exec", "puma", "-c", "config/puma.rb"]
+CMD ["bundle", "exec", "puma", "-C", "config/puma.rb"]
