@@ -63,8 +63,11 @@ if rails_env == 'production'
   end
 end
 
-# Request timeout (seconds) - default is 60
-request_timeout 30
+# Timeouts (for puma 5.6.9 compatibility)
+# first_data_timeout: time to receive first data from client (default: 30)
+# persistent_timeout: time to keep connection open (default: 20)
+first_data_timeout 30
+persistent_timeout 20
 
 # Worker timeout (seconds) - default is 60
 worker_timeout 60
