@@ -2,7 +2,7 @@
 # Optimized for AWS self-managed Kubernetes cluster
 
 # Stage 1: Builder
-FROM public.ecr.aws/docker/library/ruby:3.2.0-slim as builder
+FROM public.ecr.aws/docker/library/ruby:3.2.0-slim AS builder
 
 # Install build dependencies
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
@@ -57,10 +57,8 @@ ENV RACK_ENV=production
 ENV RAILS_LOG_TO_STDOUT=true
 ENV RAILS_SERVE_STATIC_FILES=true
 
-# Configure bundler to use the copied gems and run local bundle install
-# This ensures bundler metadata is correct in the runtime container
-RUN bundle config set --local path /usr/local/bundle && \
-    bundle install --local --without development test
+# Verify bundler can access the gems from the builder stage
+RUN bundle exec rails --version
 
 # Switch to rails user
 USER rails
