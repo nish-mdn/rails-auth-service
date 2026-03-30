@@ -1,0 +1,63 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Ruby & Bundler
+.ruby-version
+.ruby-gemset
+.bundle
+vendor/bundle
+*.gem
+Gemfile.lock
+
+# Rails
+log/*
+tmp/*
+public/packs/*
+public/assets/*
+node_modules/*
+yarn-error.log
+
+# IDE & Text Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Documentation
+README.md
+QUICKSTART.md
+API_REFERENCE.md
+ARCHITECTURE.md
+DEPLOYMENT.md
+BUILD_SUMMARY.md
+GETTING_STARTED.md
+INDEX.md
+*.md
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+Jenkinsfile
+
+# Tests
+spec/
+features/
+test/
+coverage/
+
+# Misc
+docker-compose.yml
+docker-compose.override.yml
+Dockerfile.dev
+.dockerignore

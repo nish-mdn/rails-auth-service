@@ -1,0 +1,121 @@
+<div class="card">
+  <h1>Welcome Back</h1>
+  <p class="subtitle">Sign in to your account</p>
+
+  <div class="success-message" id="successMessage"></div>
+
+  <form id="loginForm">
+    <div class="form-group">
+      <label for="email">Email Address</label>
+      <input 
+        type="email" 
+        id="email" 
+        name="email" 
+        placeholder="you@example.com"
+        required
+      >
+      <div class="error-message" id="emailError"></div>
+    </div>
+
+    <div class="form-group">
+      <label for="password">Password</label>
+      <input 
+        type="password" 
+        id="password" 
+        name="password" 
+        placeholder="••••••••"
+        required
+      >
+      <div class="error-message" id="passwordError"></div>
+    </div>
+
+    <div class="form-group">
+      <button type="submit" class="btn btn-primary" id="submitButton">
+        Sign In
+      </button>
+      <div class="loading" id="loading">
+        <span class="spinner"></span>Signing in...
+      </div>
+    </div>
+  </form>
+
+  <div class="toggle-link">
+    Don't have an account? 
+    <a href="<%= new_user_registration_path %>">Sign up</a>
+  </div>
+</div>
+
+<script>
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const submitButton = document.getElementById('submitButton');
+    const loading = document.getElementById('loading');
+
+    // Clear previous errors
+    document.getElementById('emailError').classList.remove('show');
+    document.getElementById('passwordError').classList.remove('show');
+
+    if (!email || !password) {
+      if (!email) document.getElementById('emailError').textContent = 'Email is required';
+      if (!password) document.getElementById('passwordError').textContent = 'Password is required';
+      return;
+    }
+
+    submitButton.disabled = true;
+    loading.classList.add('show');
+
+    try {
+      const response = await fetch('/users/sign_in', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+        },
+        body: JSON.stringify({
+          user: { email, password }
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Store the token
+        localStorage.setItem('authToken', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        
+        // Show success message
+        const successMsg = document.getElementById('successMessage');
+        successMsg.textContent = data.message;
+        successMsg.classList.add('show');
+
+        // Redirect after 1 second
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 1000);
+      } else {
+        const errorMsg = data.message || 'Login failed';
+        if (data.errors) {
+          Object.keys(data.errors).forEach(field => {
+            const errorElement = document.getElementById(`${field}Error`);
+            if (errorElement) {
+              errorElement.textContent = data.errors[field][0] || errorMsg;
+              errorElement.classList.add('show');
+            }
+          });
+        } else {
+          document.getElementById('emailError').textContent = errorMsg;
+          document.getElementById('emailError').classList.add('show');
+        }
+      }
+    } catch (error) {
+      document.getElementById('emailError').textContent = 'An error occurred. Please try again.';
+      document.getElementById('emailError').classList.add('show');
+    } finally {
+      submitButton.disabled = false;
+      loading.classList.remove('show');
+    }
+  });
+</script>

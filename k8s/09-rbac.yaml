@@ -1,0 +1,41 @@
+---
+# RBAC for service account (if needed)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: auth-service
+  namespace: auth-service
+  labels:
+    app: auth-service
+
+---
+# Role for Auth Service
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: auth-service-role
+  namespace: auth-service
+spec:
+  rules:
+    - apiGroups: [""]
+      resources: ["configmaps", "secrets"]
+      verbs: ["get", "list", "watch"]
+    - apiGroups: [""]
+      resources: ["pods"]
+      verbs: ["get", "list"]
+
+---
+# RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: auth-service-rolebinding
+  namespace: auth-service
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: auth-service-role
+subjects:
+  - kind: ServiceAccount
+    name: auth-service
+    namespace: auth-service

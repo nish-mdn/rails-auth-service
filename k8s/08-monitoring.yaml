@@ -1,0 +1,114 @@
+---
+# ServiceMonitor for Prometheus (if using Prometheus Operator)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: auth-service-monitor
+  namespace: auth-service
+  labels:
+    app: auth-service
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: auth-service
+      component: application
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+
+---
+# PrometheusRule for alerting
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: auth-service-rules
+  namespace: auth-service
+  labels:
+    app: auth-service
+    prometheus: kube-prometheus
+spec:
+  groups:
+    - name: auth-service
+      interval: 30s
+      rules:
+        # Alert when pod is down
+        - alert: AuthServicePodDown
+          expr: up{job="auth-service-app"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Auth Service pod is down"
+            description: "Auth Service pod has been down for more than 2 minutes"
+        
+        # Alert when CPU usage is high
+        - alert: AuthServiceHighCPU
+          expr: rate(container_cpu_usage_seconds_total{pod=~"auth-service-app-.*"}[5m]) > 0.8
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Auth Service CPU usage is high"
+            description: "CPU usage is above 80% for 5 minutes"
+        
+        # Alert when memory usage is high
+        - alert: AuthServiceHighMemory
+          expr: container_memory_usage_bytes{pod=~"auth-service-app-.*"} / container_spec_memory_limit_bytes > 0.8
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Auth Service memory usage is high"
+            description: "Memory usage is above 80% for 5 minutes"
+        
+        # Alert when database connection fails
+        - alert: AuthServiceDatabaseDown
+          expr: mysql_up{job="auth-service-mysql"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Auth Service database is unreachable"
+            description: "Database has been unreachable for more than 2 minutes"
+        
+        # Alert when error rate is high
+        - alert: AuthServiceHighErrorRate
+          expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Auth Service error rate is high"
+            description: "Error rate is above 5% for 5 minutes"
+
+---
+# ClusterRole for monitoring RBAC
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: auth-service-monitoring
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch"]
+
+---
+# ClusterRoleBinding for monitoring RBAC
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: auth-service-monitoring
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: auth-service-monitoring
+subjects:
+  - kind: ServiceAccount
+    name: prometheus-operator
+    namespace: prometheus  # Change to your Prometheus namespace
