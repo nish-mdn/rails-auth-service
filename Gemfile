@@ -18,7 +18,7 @@ gem "aws-sdk-s3", require: false
 # Authentication & JWT
 gem "devise"
 gem "devise-jwt"
-gem "ruby-jwt"
+gem "jwt"
 
 # Security & CORS
 gem "rack-cors"
