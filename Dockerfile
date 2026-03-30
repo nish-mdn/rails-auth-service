@@ -2,7 +2,7 @@
 # Optimized for AWS self-managed Kubernetes cluster
 
 # Stage 1: Builder
-FROM ruby:3.2.0-slim as builder
+FROM public.ecr.aws/docker/library/ruby:3.2.0-slim as builder
 
 # Install build dependencies
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
@@ -21,7 +21,7 @@ COPY Gemfile Gemfile.lock* ./
 RUN bundle install --jobs 4 --retry 3 --without development test
 
 # Stage 2: Runtime
-FROM ruby:3.2.0-slim
+FROM public.ecr.aws/docker/library/ruby:3.2.0-slim
 
 # Install runtime dependencies
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
