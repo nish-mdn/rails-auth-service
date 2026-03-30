@@ -35,8 +35,11 @@ RUN useradd -m -u 1000 rails
 
 WORKDIR /app
 
-# Copy Gemfile first for bundle configuration
-COPY --chown=rails:rails Gemfile Gemfile.lock* ./
+# Copy Gemfile from source
+COPY --chown=rails:rails Gemfile ./
+
+# Copy Gemfile.lock from builder (created during bundle install in builder stage)
+COPY --from=builder /app/Gemfile.lock ./
 
 # Copy gems from builder
 COPY --from=builder /usr/local/bundle /usr/local/bundle
@@ -48,7 +51,7 @@ COPY --chown=rails:rails . .
 RUN mkdir -p /app/log /app/tmp/pids /app/tmp/cache /app/tmp/sockets
 RUN chown -R rails:rails /app
 
-# Set environment
+# Set environment variables (bundler will find gems in BUNDLE_PATH)
 ENV RAILS_ENV=production
 ENV BUNDLE_PATH=/usr/local/bundle
 ENV BUNDLE_GEMFILE=/app/Gemfile
@@ -57,8 +60,7 @@ ENV RACK_ENV=production
 ENV RAILS_LOG_TO_STDOUT=true
 ENV RAILS_SERVE_STATIC_FILES=true
 
-# Verify and prepare gems with deployment flag (uses pre-resolved Gemfile.lock)
-RUN bundle install --deployment --without development test
+# DO NOT run bundle install - gems are pre-compiled and ready from builder
 
 # Switch to rails user
 USER rails
