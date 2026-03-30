@@ -41,6 +41,9 @@ COPY --chown=rails:rails Gemfile ./
 # Copy Gemfile.lock from builder (created during bundle install in builder stage)
 COPY --from=builder /app/Gemfile.lock ./
 
+# Copy bundle configuration from builder
+COPY --from=builder /app/.bundle /app/.bundle
+
 # Copy gems from builder
 COPY --from=builder /usr/local/bundle /usr/local/bundle
 
@@ -59,8 +62,6 @@ ENV PATH="/app/bin:${PATH}"
 ENV RACK_ENV=production
 ENV RAILS_LOG_TO_STDOUT=true
 ENV RAILS_SERVE_STATIC_FILES=true
-
-# DO NOT run bundle install - gems are pre-compiled and ready from builder
 
 # Switch to rails user
 USER rails
