@@ -2,7 +2,7 @@
 # Optimized for AWS self-managed Kubernetes cluster
 
 # Stage 1: Builder
-FROM public.ecr.aws/docker/library/ruby:3.2.0-slim AS builder
+FROM public.ecr.aws/docker/library/ruby:3.2.0-slim as builder
 
 # Install build dependencies
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
@@ -18,8 +18,8 @@ WORKDIR /app
 COPY Gemfile Gemfile.lock* ./
 
 # Install gems
-RUN bundle config set --local without 'development test' && \
-    bundle install --jobs 4 --retry 3
+RUN bundle install --jobs 4 --retry 3 --without development test
+
 # Stage 2: Runtime
 FROM public.ecr.aws/docker/library/ruby:3.2.0-slim
 
@@ -35,6 +35,9 @@ RUN useradd -m -u 1000 rails
 
 WORKDIR /app
 
+# Copy Gemfile first for bundle configuration
+COPY --chown=rails:rails Gemfile Gemfile.lock* ./
+
 # Copy gems from builder
 COPY --from=builder /usr/local/bundle /usr/local/bundle
 
@@ -48,10 +51,16 @@ RUN chown -R rails:rails /app
 # Set environment
 ENV RAILS_ENV=production
 ENV BUNDLE_PATH=/usr/local/bundle
+ENV BUNDLE_GEMFILE=/app/Gemfile
 ENV PATH="/app/bin:${PATH}"
 ENV RACK_ENV=production
 ENV RAILS_LOG_TO_STDOUT=true
 ENV RAILS_SERVE_STATIC_FILES=true
+
+# Configure bundler to use the copied gems and run local bundle install
+# This ensures bundler metadata is correct in the runtime container
+RUN bundle config set --local path /usr/local/bundle && \
+    bundle install --local --without development test
 
 # Switch to rails user
 USER rails
