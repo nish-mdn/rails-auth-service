@@ -23,6 +23,11 @@ mkdir -p /app/log /app/tmp/pids /app/tmp/cache /app/tmp/sockets
 
 # Wait for database to be ready
 echo "⏳ Waiting for database to be ready..."
+echo "  DB_HOST=$DB_HOST"
+echo "  DB_USERNAME=$DB_USERNAME"
+echo "  DB_PASSWORD=$DB_PASSWORD"
+echo "  RAILS_ENV=$RAILS_ENV"
+
 max_attempts=30
 attempt=1
 
