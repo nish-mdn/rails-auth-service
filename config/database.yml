@@ -18,7 +18,7 @@ test:
 production:
   <<: *default
   database: <%= ENV.fetch("DB_NAME", "auth_service_production") %>
-  username: <%= ENV.fetch("DB_USERNAME", "auth_user") %>
+  username: <%= ENV.fetch("DB_USERNAME", "auth_service_user") %>
   password: <%= ENV.fetch("DB_PASSWORD", "") %>
   host: <%= ENV.fetch("DB_HOST", "localhost") %>
   port: <%= ENV.fetch("DB_PORT", 3306) %>
