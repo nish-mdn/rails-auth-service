@@ -20,20 +20,25 @@ WORKDIR /app
 # Copy Gemfile and Gemfile.lock
 COPY --chown=rails:rails Gemfile Gemfile.lock* ./
 
-# Install gems
-RUN bundle install --jobs 4 --retry 3 --without development test
+# Install gems with proper bundler setup
+RUN bundle config set without 'development test' && \
+    bundle install --jobs 4 --retry 3 && \
+    bundle binstubs bundler --force
 
 # Copy application code
 COPY --chown=rails:rails . .
 
 # Create necessary directories
-RUN mkdir -p /app/log /app/tmp/pids /app/tmp/cache /app/tmp/sockets
+RUN mkdir -p /app/log /app/tmp/pids /app/tmp/cache /app/tmp/sockets /app/keys && \
+    chown -R rails:rails /app/tmp /app/log /app/keys
 
 # Set environment variables
 ENV RAILS_ENV=production
 ENV RACK_ENV=production
 ENV RAILS_LOG_TO_STDOUT=true
 ENV RAILS_SERVE_STATIC_FILES=true
+ENV RAILS_ROOT=/app
+ENV PATH=/app/bin:$PATH
 
 # Switch to rails user
 USER rails

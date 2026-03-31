@@ -9,8 +9,17 @@ echo "Auth Service - Docker Entrypoint"
 echo "========================================="
 echo ""
 
+# Explicitly set Rails environment variables
+export RAILS_ENV=${RAILS_ENV:-production}
+export RACK_ENV=${RACK_ENV:-production}
+export RAILS_LOG_TO_STDOUT=true
+export RAILS_SERVE_STATIC_FILES=true
+
+# Change to app directory
+cd /app
+
 # Ensure log directory exists
-mkdir -p /app/log
+mkdir -p /app/log /app/tmp/pids /app/tmp/cache /app/tmp/sockets
 
 # Wait for database to be ready
 echo "⏳ Waiting for database to be ready..."
