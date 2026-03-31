@@ -80,7 +80,7 @@ Rails.application.configure do
 
   if ENV["RAILS_LOG_TO_STDOUT"].present?
     logger           = ActiveSupport::TaggedLogging.new(Logger.new(STDOUT))
-    logger.formatter = config.log_formatter
+    logger.formatter = ::Logger::Formatter.new
     config.logger    = logger
   end
 

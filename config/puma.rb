@@ -40,7 +40,7 @@ if rails_env == 'production'
   
   # Logging
   stdout_redirect ENV['LOG_PATH'] || '/app/log/puma.log',
-                  ENV['LOG_PATH'] || '/app/log/puma.err.log',
+                  ENV['LOG_ERR_PATH'] || '/app/log/puma.err.log',
                   true
   
   # Plugin support (if needed)
@@ -56,10 +56,6 @@ if rails_env == 'production'
     ActiveSupport.on_load(:active_record) do
       ActiveRecord::Base.establish_connection
     end
-  end
-  
-  on_worker_shutdown do
-    # Worker shutdown cleanup
   end
 end
 
