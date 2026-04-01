@@ -22,13 +22,19 @@ RUN bundle config set without 'development test' && \
 # 3. COPY APPLICATION CODE
 COPY --chown=rails:rails . .
 
-# 4. THE MASTER ASSET & CONFIGURATION FIX (No internal comments to prevent shell errors)
+# 4. THE MASTER CONFIGURATION & ASSET FIX (No internal comments to avoid shell errors)
 RUN if [ ! -f Rakefile ]; then \
       echo "require_relative 'config/application'\nRails.application.load_tasks" > Rakefile; \
     fi && \
-    mkdir -p config app/javascript/packs && \
+    mkdir -p config/webpack app/javascript/packs && \
     if [ ! -f config/webpacker.yml ]; then \
       echo "default: &default\n  source_path: app/javascript\n  source_entry_path: packs\n  public_root_path: public\n  public_output_path: packs\n  cache_path: tmp/webpacker\n  check_yarn_integrity: false\n\nproduction:\n  <<: *default\n  compile: false\n  extract_css: true\n  cache_manifest: true" > config/webpacker.yml; \
+    fi && \
+    if [ ! -f config/webpack/base.js ]; then \
+      echo "const { webpackConfig } = require('@rails/webpacker')\nmodule.exports = webpackConfig" > config/webpack/base.js; \
+    fi && \
+    if [ ! -f config/webpack/production.js ]; then \
+      echo "process.env.NODE_ENV = process.env.NODE_ENV || 'production'\nconst webpackConfig = require('./base')\nmodule.exports = webpackConfig" > config/webpack/production.js; \
     fi && \
     if [ ! -f app/javascript/packs/application.js ]; then \
       echo "import Rails from '@rails/ujs'\nRails.start()" > app/javascript/packs/application.js; \
@@ -64,7 +70,7 @@ EXPOSE 3000
 
 # 6. HEALTH CHECK
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-  CMD curl -f http://localhost:3000/health || exit 1
+  CMD curl -f http://localhost:3000/health || exit 1 [cite: 13]
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["bundle", "exec", "puma", "-C", "config/puma.rb"]
