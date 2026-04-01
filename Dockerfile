@@ -27,17 +27,24 @@ COPY --chown=rails:rails . .
 
 # 4. REGENERATE BINSTUBS, FIX RAKEFILE & PERMISSIONS
 # We do this as ROOT to avoid "Permission Denied" errors
+# 4. REGENERATE BINSTUBS, FIX RAKEFILE, ASSETS & PERMISSIONS
 RUN bundle binstubs railties --force && \
-    # FIX: If Rakefile is missing, create a minimal one so 'rails db:migrate' can run
+    # Fix Rakefile (as we did before)
     if [ ! -f Rakefile ]; then \
       echo "require_relative 'config/application'" > Rakefile; \
       echo "Rails.application.load_tasks" >> Rakefile; \
     fi && \
+    # FIX: Ensure Tailwind entry point exists
+    mkdir -p app/assets/tailwind && \
+    if [ ! -f app/assets/tailwind/application.css ]; then \
+      echo "@tailwind base;\n@tailwind components;\n@tailwind utilities;" > app/assets/tailwind/application.css; \
+    fi && \
+    # Precompile assets during build (Best Practice for Production)
+    # Use dummy values for Secret Key Base if it's not set yet
+    SECRET_KEY_BASE=dummy_key_for_build bundle exec rails assets:precompile && \
     # Ensure all executables are actually executable
     chmod +x bin/* && \
-    # Create necessary directories
     mkdir -p log tmp/pids tmp/cache tmp/sockets keys && \
-    # Final ownership sweep to ensure the 'rails' user owns EVERYTHING in /app
     chown -R rails:rails /app
 
 # 5. Environment & User Settings
