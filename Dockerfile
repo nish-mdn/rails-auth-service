@@ -23,7 +23,7 @@ RUN bundle config set without 'development test' && \
 COPY --chown=rails:rails . .
 
 # 4. INSTALL YARN DEPS & PRECOMPILE ASSETS
-RUN mkdir -p bin log tmp/pids tmp/cache tmp/sockets keys && \
+RUN mkdir -p log tmp/pids tmp/cache tmp/sockets keys && \
     yarn install --frozen-lockfile && \
     SECRET_KEY_BASE=dummy_key_for_build \
     RAILS_ENV=production \
