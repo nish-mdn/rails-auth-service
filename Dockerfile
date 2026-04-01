@@ -1,7 +1,7 @@
-# Single-stage Dockerfile for Rails Auth Service (PennyWise)
+# Single-stage Dockerfile for Rails Auth Service (PennyWise) [cite: 1]
 FROM public.ecr.aws/docker/library/ruby:3.2.0-slim
 
-# 1. INSTALL SYSTEM DEPENDENCIES (Node 20, Yarn, MariaDB)
+# 1. INSTALL SYSTEM DEPENDENCIES (Ruby 3.2.0, Node 20, Yarn) [cite: 1, 2, 3]
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
     build-essential git libmariadb-dev pkg-config libmariadb3 default-mysql-client curl gnupg \
     && mkdir -p /etc/apt/keyrings \
@@ -22,39 +22,31 @@ RUN bundle config set without 'development test' && \
 # 3. COPY APPLICATION CODE
 COPY --chown=rails:rails . .
 
-# 4. THE MASTER ASSET & CONFIGURATION FIX
+# 4. THE MASTER ASSET & CONFIGURATION FIX (No internal comments to prevent shell errors)
 RUN if [ ! -f Rakefile ]; then \
       echo "require_relative 'config/application'\nRails.application.load_tasks" > Rakefile; \
     fi && \
-    \
-    # 4b. Fix Webpacker Config if missing (Prevents: config/webpacker.yml not found) \
+    mkdir -p config app/javascript/packs && \
     if [ ! -f config/webpacker.yml ]; then \
-      bundle exec rails webpacker:install; \
+      echo "default: &default\n  source_path: app/javascript\n  source_entry_path: packs\n  public_root_path: public\n  public_output_path: packs\n  cache_path: tmp/webpacker\n  check_yarn_integrity: false\n\nproduction:\n  <<: *default\n  compile: false\n  extract_css: true\n  cache_manifest: true" > config/webpacker.yml; \
     fi && \
-    \
-    # 4c. Generate all binstubs \
+    if [ ! -f app/javascript/packs/application.js ]; then \
+      echo "import Rails from '@rails/ujs'\nRails.start()" > app/javascript/packs/application.js; \
+    fi && \
     bundle binstubs railties --force && \
     bundle exec rails webpacker:binstubs && \
-    \
-    # 4d. Create asset directories and manifest \
     mkdir -p app/assets/config app/assets/images app/assets/stylesheets \
              app/assets/javascripts app/assets/builds app/assets/tailwind \
-             app/javascript/packs vendor/javascript && \
+             vendor/javascript && \
     touch app/assets/images/.keep app/assets/stylesheets/.keep \
           app/assets/javascripts/.keep app/assets/builds/.keep && \
     echo "//= link_tree ../images\n//= link_tree ../stylesheets\n//= link_tree ../javascripts\n//= link_tree ../builds" > app/assets/config/manifest.js && \
-    \
-    # 4e. Fix Tailwind v4 and Font stubs \
     echo "@tailwind base;\n@tailwind components;\n@tailwind utilities;" > app/assets/tailwind/application.css && \
     echo "@tailwind base;\n@tailwind components;\n@tailwind utilities;" > app/assets/tailwind/tailwind.css && \
     if [ ! -f app/assets/stylesheets/inter-font.css ]; then \
       echo "/* Inter Font Stub */" > app/assets/stylesheets/inter-font.css; \
     fi && \
-    \
-    # 4f. ASSETS: Precompile (Now with both Sprockets and Webpacker config) \
     SECRET_KEY_BASE=dummy_key_for_build RAILS_ENV=production NODE_ENV=production bundle exec rails assets:precompile && \
-    \
-    # 4g. PERMISSIONS: Finalize for the rails user \
     chmod +x bin/* && \
     mkdir -p log tmp/pids tmp/cache tmp/sockets keys && \
     chown -R rails:rails /app
@@ -65,7 +57,6 @@ ENV RAILS_ENV=production \
     RAILS_SERVE_STATIC_FILES=true \
     PATH=/app/bin:$PATH
 
-# Ensure entrypoint is executable
 RUN chmod +x /app/docker-entrypoint.sh
 
 USER rails
