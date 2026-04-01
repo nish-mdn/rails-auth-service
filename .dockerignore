@@ -7,7 +7,6 @@
 .ruby-version
 .ruby-gemset
 .bundle
-vendor/bundle
 *.gem
 
 # Rails

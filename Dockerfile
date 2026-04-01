@@ -29,32 +29,37 @@ COPY --chown=rails:rails . .
 # We do this as ROOT to avoid "Permission Denied" errors
 # 4. REGENERATE BINSTUBS, FIX RAKEFILE, ASSETS & PERMISSIONS
 # 4. REGENERATE BINSTUBS, FIX RAKEFILE, ENSURE ASSET DIRS & PERMISSIONS
+# 4. REGENERATE BINSTUBS, FIX RAKEFILE, BRUTE-FORCE ASSET DIRS & PERMISSIONS
 RUN bundle binstubs railties --force && \
-    # Fix Rakefile if missing
+    # 1. Fix Rakefile if missing (prevents 'No Rakefile found' error)
     if [ ! -f Rakefile ]; then \
-      echo "require_relative 'config/application'" > Rakefile; \
-      echo "Rails.application.load_tasks" >> Rakefile; \
+      echo "require_relative 'config/application'\nRails.application.load_tasks" > Rakefile; \
     fi && \
-    # FIX: Create all directories commonly referenced in manifest.js
-    # This prevents Sprockets::ArgumentError
+    # 2. FIX: Create every possible directory Sprockets might look for
+    # We include builds, javascripts, images, and vendor paths
     mkdir -p app/assets/config \
              app/assets/images \
              app/assets/stylesheets \
+             app/assets/javascripts \
              app/assets/builds \
-             app/javascript \
+             app/javascript/controllers \
              vendor/javascript \
+             vendor/assets/javascripts \
+             vendor/assets/stylesheets \
              app/assets/tailwind && \
-    # Ensure Tailwind entry point exists
+    # 3. FIX: Place a dummy file in each to ensure they aren't 'empty'
+    touch app/assets/images/.keep \
+          app/assets/stylesheets/.keep \
+          app/assets/javascripts/.keep \
+          app/assets/builds/.keep \
+          vendor/javascript/.keep && \
+    # 4. FIX: Ensure Tailwind entry point exists (for Tailwind v4)
     if [ ! -f app/assets/tailwind/application.css ]; then \
       echo "@tailwind base;\n@tailwind components;\n@tailwind utilities;" > app/assets/tailwind/application.css; \
     fi && \
-    # Ensure a basic manifest.js exists if it's somehow missing
-    if [ ! -f app/assets/config/manifest.js ]; then \
-      echo "//= link_tree ../images\n//= link_directory ../stylesheets .css\n//= link_tree ../../javascript .js\n//= link_tree ../../../vendor/javascript .js\n//= link_tree ../builds" > app/assets/config/manifest.js; \
-    fi && \
-    # Precompile assets
+    # 5. ASSETS: Precompile with a dummy Secret Key Base
     SECRET_KEY_BASE=dummy_key_for_build bundle exec rails assets:precompile && \
-    # Finalize permissions and executables
+    # 6. PERMISSIONS: Finalize for the 'rails' user
     chmod +x bin/* && \
     mkdir -p log tmp/pids tmp/cache tmp/sockets keys && \
     chown -R rails:rails /app
