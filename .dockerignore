@@ -9,7 +9,6 @@
 .bundle
 vendor/bundle
 *.gem
-Gemfile.lock
 
 # Rails
 log/*

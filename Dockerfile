@@ -17,18 +17,24 @@ RUN useradd -m -u 1000 rails
 
 WORKDIR /app
 
-# Copy Gemfile and Gemfile.lock
+# 1. Copy Gemfile and Gemfile.lock first for better caching
 COPY --chown=rails:rails Gemfile Gemfile.lock* ./
 
-# Install gems with proper bundler setup
+# 2. Install gems
 RUN bundle config set without 'development test' && \
-    bundle install --jobs 4 --retry 3 && \
-    bundle binstubs bundler --force
+    bundle install --jobs 4 --retry 3
 
-# Copy application code
+# 3. Copy the rest of the application code
+# This MUST happen before we try to generate binstubs
 COPY --chown=rails:rails . .
 
-# Create necessary directories
+# 4. FIX: Generate missing binstubs (rails, rake) while still ROOT
+# This ensures they are created even if they were missing from your repo
+RUN bundle binstubs railties --force && \
+    chmod +x bin/* && \
+    chown -R rails:rails /app/bin /app/db
+
+# 5. Create necessary directories and ensure ownership
 RUN mkdir -p /app/log /app/tmp/pids /app/tmp/cache /app/tmp/sockets /app/keys && \
     chown -R rails:rails /app/tmp /app/log /app/keys
 
@@ -38,6 +44,7 @@ ENV RACK_ENV=production
 ENV RAILS_LOG_TO_STDOUT=true
 ENV RAILS_SERVE_STATIC_FILES=true
 ENV RAILS_ROOT=/app
+# Ensure /app/bin is first in the PATH so 'rails' refers to the local one
 ENV PATH=/app/bin:$PATH
 
 # Switch to rails user
@@ -51,7 +58,7 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD curl -f http://localhost:3000/health || exit 1
 
 # Entrypoint script
-COPY --chown=rails:rails docker-entrypoint.sh /app/docker-entrypoint.sh
+# Note: We already copied this in step 3, but let's ensure it's executable
 RUN chmod +x /app/docker-entrypoint.sh
 
 # Start application
