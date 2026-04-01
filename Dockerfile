@@ -1,7 +1,7 @@
 # Single-stage Dockerfile for Rails Auth Service (PennyWise)
 FROM public.ecr.aws/docker/library/ruby:3.2.0-slim
 
-# 1. INSTALL SYSTEM DEPENDENCIES
+# 1. INSTALL SYSTEM DEPENDENCIES (Node 20, Yarn, MariaDB)
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
     build-essential git libmariadb-dev pkg-config libmariadb3 default-mysql-client curl gnupg \
     && mkdir -p /etc/apt/keyrings \
@@ -22,8 +22,9 @@ RUN bundle config set without 'development test' && \
 # 3. COPY APPLICATION CODE
 COPY --chown=rails:rails . .
 
-# 4. THE ASSET & PERMISSION FIX (Internal comments removed to prevent shell skipping)
-RUN bundle binstubs railties webpacker --force && \
+# 4. THE ASSET & PERMISSION FIX (Formatting corrected for shell execution)
+RUN bundle binstubs railties --force && \
+    bundle exec rails webpacker:binstubs && \
     if [ ! -f Rakefile ]; then \
       echo "require_relative 'config/application'\nRails.application.load_tasks" > Rakefile; \
     fi && \
@@ -38,9 +39,7 @@ RUN bundle binstubs railties webpacker --force && \
     if [ ! -f app/assets/stylesheets/inter-font.css ]; then \
       echo "/* Inter Font Stub */" > app/assets/stylesheets/inter-font.css; \
     fi && \
-    SECRET_KEY_BASE=dummy_key_for_build \
-    RAILS_ENV=production NODE_ENV=production \
-    bundle exec rails assets:precompile && \
+    SECRET_KEY_BASE=dummy_key_for_build RAILS_ENV=production NODE_ENV=production bundle exec rails assets:precompile && \
     chmod +x bin/* && \
     mkdir -p log tmp/pids tmp/cache tmp/sockets keys && \
     chown -R rails:rails /app
@@ -51,7 +50,6 @@ ENV RAILS_ENV=production \
     RAILS_SERVE_STATIC_FILES=true \
     PATH=/app/bin:$PATH
 
-# Ensure entrypoint is executable
 RUN chmod +x /app/docker-entrypoint.sh
 
 USER rails
