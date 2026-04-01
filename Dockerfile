@@ -24,7 +24,7 @@ RUN bundle config set without 'development test' && \
 # 3. COPY APPLICATION CODE
 COPY --chown=rails:rails . .
 
-# 4. THE ASSET & PERMISSION FIX (Comments removed from inside RUN to prevent shell errors)
+# 4. THE FINAL ASSET & PERMISSION FIX
 RUN bundle binstubs railties --force && \
     if [ ! -f Rakefile ]; then \
       echo "require_relative 'config/application'\nRails.application.load_tasks" > Rakefile; \
@@ -34,20 +34,17 @@ RUN bundle binstubs railties --force && \
              app/javascript/controllers vendor/javascript && \
     touch app/assets/images/.keep app/assets/stylesheets/.keep \
           app/assets/javascripts/.keep app/assets/builds/.keep && \
-    # FIX: Update manifest.js to include the 'builds' folder where compiled CSS resides
     echo "//= link_tree ../images\n//= link_tree ../stylesheets\n//= link_tree ../javascripts\n//= link_tree ../builds" > app/assets/config/manifest.js && \
-    # FIX: Create both application.css (v4 default) and tailwind.css (Layout requirement)
+    # FIX: Ensure we use the exact naming Tailwind v4 expects
     echo "@tailwind base;\n@tailwind components;\n@tailwind utilities;" > app/assets/tailwind/application.css && \
     echo "@tailwind base;\n@tailwind components;\n@tailwind utilities;" > app/assets/tailwind/tailwind.css && \
-    # FIX: Stub inter-font.css so the layout doesn't crash on Line 10
     if [ ! -f app/assets/stylesheets/inter-font.css ]; then \
       echo "/* Inter Font Stub */" > app/assets/stylesheets/inter-font.css; \
     fi && \
-    # ASSETS: Precompile for production
+    # ASSETS: Precompile with CSS compression disabled to avoid SassC errors
     SECRET_KEY_BASE=dummy_key_for_build \
     RAILS_ENV=production NODE_ENV=production \
     bundle exec rails assets:precompile && \
-    # PERMISSIONS: Finalize
     chmod +x bin/* && \
     mkdir -p log tmp/pids tmp/cache tmp/sockets keys && \
     chown -R rails:rails /app

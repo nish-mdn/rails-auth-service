@@ -54,7 +54,8 @@ Rails.application.configure do
     # Wrap the logger in TaggedLogging to support config.log_tags
     config.logger    = ActiveSupport::TaggedLogging.new(logger)
   end
-  
+  # Add this line to skip Sass-based compression which crashes on Tailwind v4
+  config.assets.css_compressor = nil
   # --- LOGGING FIX END ---
 
   # Do not dump schema after migrations.
