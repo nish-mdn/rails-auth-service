@@ -1,7 +1,7 @@
-# Single-stage Dockerfile for Rails Auth Service
+# Single-stage Dockerfile for Rails Auth Service (PennyWise)
 FROM public.ecr.aws/docker/library/ruby:3.2.0-slim
 
-# 1. System Dependencies (Now including Node.js and Yarn)
+# 1. INSTALL ALL SYSTEM DEPENDENCIES (Node, Yarn, Build Essentials, MariaDB)
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
     build-essential \
     git \
@@ -23,22 +23,26 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends \
 RUN useradd -m -u 1000 rails
 WORKDIR /app
 
-# 2. Gem Installation
-# IMPORTANT: Ensure Gemfile.lock is REMOVED from your .dockerignore file
+# 2. INSTALL GEMS
+# CRITICAL: Ensure Gemfile.lock is REMOVED from your .dockerignore file
 COPY --chown=rails:rails Gemfile Gemfile.lock* ./
 RUN bundle config set without 'development test' && \
     bundle install --jobs 4 --retry 3
 
-# 3. Copy Application Code
+# 3. COPY APPLICATION CODE
 COPY --chown=rails:rails . .
 
-# 4. REGENERATE BINSTUBS, FIX RAKEFILE, ASSETS & PERMISSIONS
-RUN bundle binstubs railties --force && \
-    # Fix Rakefile if missing
+# 4. THE FINAL "UNSTOPPABLE" BUILD BLOCK
+# This fixes binstubs, Rakefile, missing directories, and assets in one shot
+RUN # 4a. Generate ALL necessary binstubs (Rails, Rake, and Webpacker) \
+    bundle binstubs railties webpacker --force && \
+    \
+    # 4b. Fix Rakefile if missing (prevents 'No Rakefile found' error) \
     if [ ! -f Rakefile ]; then \
       echo "require_relative 'config/application'\nRails.application.load_tasks" > Rakefile; \
     fi && \
-    # Create asset directories to prevent Sprockets::ArgumentError
+    \
+    # 4c. Brute-force create all directories referenced in manifest.js \
     mkdir -p app/assets/config \
              app/assets/images \
              app/assets/stylesheets \
@@ -52,18 +56,24 @@ RUN bundle binstubs railties --force && \
           app/assets/javascripts/.keep \
           app/assets/builds/.keep \
           vendor/javascript/.keep && \
-    # Ensure Tailwind entry point exists
+    \
+    # 4d. Fix Tailwind v4 entry point \
     if [ ! -f app/assets/tailwind/application.css ]; then \
       echo "@tailwind base;\n@tailwind components;\n@tailwind utilities;" > app/assets/tailwind/application.css; \
     fi && \
-    # Precompile assets (Node.js is now available for this step)
-    SECRET_KEY_BASE=dummy_key_for_build bundle exec rails assets:precompile && \
-    # Finalize permissions
+    \
+    # 4e. ASSETS: Precompile (Node and Webpacker stubs are now present) \
+    SECRET_KEY_BASE=dummy_key_for_build \
+    RAILS_ENV=production \
+    NODE_ENV=production \
+    bundle exec rails assets:precompile && \
+    \
+    # 4f. PERMISSIONS: Finalize for the 'rails' user \
     chmod +x bin/* && \
     mkdir -p log tmp/pids tmp/cache tmp/sockets keys && \
     chown -R rails:rails /app
 
-# 5. Environment & User Settings
+# 5. ENVIRONMENT & USER SETTINGS
 ENV RAILS_ENV=production \
     RACK_ENV=production \
     RAILS_LOG_TO_STDOUT=true \
@@ -73,11 +83,11 @@ ENV RAILS_ENV=production \
 USER rails
 EXPOSE 3000
 
-# 6. Health Check
+# 6. HEALTH CHECK
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD curl -f http://localhost:3000/health || exit 1
 
-# 7. Entrypoint & Execution
+# 7. ENTRYPOINT & EXECUTION
 RUN chmod +x /app/docker-entrypoint.sh
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["bundle", "exec", "puma", "-C", "config/puma.rb"]
