@@ -1,7 +1,7 @@
-# Single-stage Dockerfile for Rails Auth Service (PennyWise) [cite: 1]
+# Single-stage Dockerfile for Rails Auth Service (PennyWise)
 FROM public.ecr.aws/docker/library/ruby:3.2.0-slim
 
-# 1. INSTALL SYSTEM DEPENDENCIES (Ruby 3.2.0, Node 20, Yarn) [cite: 1, 2, 3]
+# 1. INSTALL SYSTEM DEPENDENCIES (Node 20, Yarn, MariaDB) 
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
     build-essential git libmariadb-dev pkg-config libmariadb3 default-mysql-client curl gnupg \
     && mkdir -p /etc/apt/keyrings \
@@ -22,9 +22,12 @@ RUN bundle config set without 'development test' && \
 # 3. COPY APPLICATION CODE
 COPY --chown=rails:rails . .
 
-# 4. THE MASTER CONFIGURATION & ASSET FIX (No internal comments to avoid shell errors)
+# 4. THE MASTER "BRUTE-FORCE" ASSET & CONFIGURATION FIX
 RUN if [ ! -f Rakefile ]; then \
       echo "require_relative 'config/application'\nRails.application.load_tasks" > Rakefile; \
+    fi && \
+    if [ ! -f package.json ]; then \
+      echo '{"name": "auth-service", "private": true, "dependencies": {"@rails/webpacker": "5.4.4", "webpack": "^4.46.0", "webpack-cli": "^3.3.12"}}' > package.json; \
     fi && \
     mkdir -p config/webpack app/javascript/packs && \
     if [ ! -f config/webpacker.yml ]; then \
@@ -39,6 +42,7 @@ RUN if [ ! -f Rakefile ]; then \
     if [ ! -f app/javascript/packs/application.js ]; then \
       echo "import Rails from '@rails/ujs'\nRails.start()" > app/javascript/packs/application.js; \
     fi && \
+    yarn install --check-files && \
     bundle binstubs railties --force && \
     bundle exec rails webpacker:binstubs && \
     mkdir -p app/assets/config app/assets/images app/assets/stylesheets \
@@ -70,7 +74,7 @@ EXPOSE 3000
 
 # 6. HEALTH CHECK
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-  CMD curl -f http://localhost:3000/health || exit 1 [cite: 13]
+  CMD curl -f http://localhost:3000/health || exit 1
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["bundle", "exec", "puma", "-C", "config/puma.rb"]
