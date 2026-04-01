@@ -28,21 +28,33 @@ COPY --chown=rails:rails . .
 # 4. REGENERATE BINSTUBS, FIX RAKEFILE & PERMISSIONS
 # We do this as ROOT to avoid "Permission Denied" errors
 # 4. REGENERATE BINSTUBS, FIX RAKEFILE, ASSETS & PERMISSIONS
+# 4. REGENERATE BINSTUBS, FIX RAKEFILE, ENSURE ASSET DIRS & PERMISSIONS
 RUN bundle binstubs railties --force && \
-    # Fix Rakefile (as we did before)
+    # Fix Rakefile if missing
     if [ ! -f Rakefile ]; then \
       echo "require_relative 'config/application'" > Rakefile; \
       echo "Rails.application.load_tasks" >> Rakefile; \
     fi && \
-    # FIX: Ensure Tailwind entry point exists
-    mkdir -p app/assets/tailwind && \
+    # FIX: Create all directories commonly referenced in manifest.js
+    # This prevents Sprockets::ArgumentError
+    mkdir -p app/assets/config \
+             app/assets/images \
+             app/assets/stylesheets \
+             app/assets/builds \
+             app/javascript \
+             vendor/javascript \
+             app/assets/tailwind && \
+    # Ensure Tailwind entry point exists
     if [ ! -f app/assets/tailwind/application.css ]; then \
       echo "@tailwind base;\n@tailwind components;\n@tailwind utilities;" > app/assets/tailwind/application.css; \
     fi && \
-    # Precompile assets during build (Best Practice for Production)
-    # Use dummy values for Secret Key Base if it's not set yet
+    # Ensure a basic manifest.js exists if it's somehow missing
+    if [ ! -f app/assets/config/manifest.js ]; then \
+      echo "//= link_tree ../images\n//= link_directory ../stylesheets .css\n//= link_tree ../../javascript .js\n//= link_tree ../../../vendor/javascript .js\n//= link_tree ../builds" > app/assets/config/manifest.js; \
+    fi && \
+    # Precompile assets
     SECRET_KEY_BASE=dummy_key_for_build bundle exec rails assets:precompile && \
-    # Ensure all executables are actually executable
+    # Finalize permissions and executables
     chmod +x bin/* && \
     mkdir -p log tmp/pids tmp/cache tmp/sockets keys && \
     chown -R rails:rails /app
