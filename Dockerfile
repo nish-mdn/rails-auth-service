@@ -1,7 +1,7 @@
 # Single-stage Dockerfile for Rails Auth Service
 FROM public.ecr.aws/docker/library/ruby:3.2.0-slim
 
-# 1. System Dependencies
+# 1. System Dependencies (Now including Node.js and Yarn)
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
     build-essential \
     git \
@@ -10,13 +10,20 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends \
     libmariadb3 \
     default-mysql-client \
     curl \
+    gnupg \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update \
+    && apt-get install nodejs -y \
+    && npm install --global yarn \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security
 RUN useradd -m -u 1000 rails
 WORKDIR /app
 
-# 2. Gem Installation (Optimized for caching)
+# 2. Gem Installation
 # IMPORTANT: Ensure Gemfile.lock is REMOVED from your .dockerignore file
 COPY --chown=rails:rails Gemfile Gemfile.lock* ./
 RUN bundle config set without 'development test' && \
@@ -25,18 +32,13 @@ RUN bundle config set without 'development test' && \
 # 3. Copy Application Code
 COPY --chown=rails:rails . .
 
-# 4. REGENERATE BINSTUBS, FIX RAKEFILE & PERMISSIONS
-# We do this as ROOT to avoid "Permission Denied" errors
 # 4. REGENERATE BINSTUBS, FIX RAKEFILE, ASSETS & PERMISSIONS
-# 4. REGENERATE BINSTUBS, FIX RAKEFILE, ENSURE ASSET DIRS & PERMISSIONS
-# 4. REGENERATE BINSTUBS, FIX RAKEFILE, BRUTE-FORCE ASSET DIRS & PERMISSIONS
 RUN bundle binstubs railties --force && \
-    # 1. Fix Rakefile if missing (prevents 'No Rakefile found' error)
+    # Fix Rakefile if missing
     if [ ! -f Rakefile ]; then \
       echo "require_relative 'config/application'\nRails.application.load_tasks" > Rakefile; \
     fi && \
-    # 2. FIX: Create every possible directory Sprockets might look for
-    # We include builds, javascripts, images, and vendor paths
+    # Create asset directories to prevent Sprockets::ArgumentError
     mkdir -p app/assets/config \
              app/assets/images \
              app/assets/stylesheets \
@@ -44,22 +46,19 @@ RUN bundle binstubs railties --force && \
              app/assets/builds \
              app/javascript/controllers \
              vendor/javascript \
-             vendor/assets/javascripts \
-             vendor/assets/stylesheets \
              app/assets/tailwind && \
-    # 3. FIX: Place a dummy file in each to ensure they aren't 'empty'
     touch app/assets/images/.keep \
           app/assets/stylesheets/.keep \
           app/assets/javascripts/.keep \
           app/assets/builds/.keep \
           vendor/javascript/.keep && \
-    # 4. FIX: Ensure Tailwind entry point exists (for Tailwind v4)
+    # Ensure Tailwind entry point exists
     if [ ! -f app/assets/tailwind/application.css ]; then \
       echo "@tailwind base;\n@tailwind components;\n@tailwind utilities;" > app/assets/tailwind/application.css; \
     fi && \
-    # 5. ASSETS: Precompile with a dummy Secret Key Base
+    # Precompile assets (Node.js is now available for this step)
     SECRET_KEY_BASE=dummy_key_for_build bundle exec rails assets:precompile && \
-    # 6. PERMISSIONS: Finalize for the 'rails' user
+    # Finalize permissions
     chmod +x bin/* && \
     mkdir -p log tmp/pids tmp/cache tmp/sockets keys && \
     chown -R rails:rails /app
@@ -74,12 +73,11 @@ ENV RAILS_ENV=production \
 USER rails
 EXPOSE 3000
 
-# 6. Health Check (Uses the /health endpoint we fixed in production.rb)
+# 6. Health Check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD curl -f http://localhost:3000/health || exit 1
 
 # 7. Entrypoint & Execution
-# Ensure the entrypoint has correct permissions
 RUN chmod +x /app/docker-entrypoint.sh
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["bundle", "exec", "puma", "-C", "config/puma.rb"]
