@@ -1,7 +1,7 @@
 # Master Fix for PennyWise Auth Service
 FROM public.ecr.aws/docker/library/ruby:3.2.0-slim
 
-# 1. INSTALL SYSTEM DEPENDENCIES (Node 20, Yarn, MariaDB)
+# 1. INSTALL SYSTEM DEPENDENCIES (Ruby 3.2.0, Node 20, Yarn)
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
     build-essential git libmariadb-dev pkg-config libmariadb3 default-mysql-client curl gnupg \
     && mkdir -p /etc/apt/keyrings \
@@ -23,7 +23,7 @@ RUN bundle config set without 'development test' && \
 COPY --chown=rails:rails . .
 
 # 4. THE ULTIMATE "BRUTE-FORCE" ASSET & CONFIG FIX
-# This block creates EVERY directory and file required to prevent "nonexistent directory" errors.
+# We force every missing file to exist with correct formatting
 RUN mkdir -p bin config/webpack \
              app/javascript/packs \
              app/assets/config \
@@ -37,37 +37,37 @@ RUN mkdir -p bin config/webpack \
     bundle binstubs railties --force && \
     \
     # 4b. Force create Rakefile
-    echo "require_relative 'config/application'\nRails.application.load_tasks" > Rakefile && \
+    printf "require_relative 'config/application'\nRails.application.load_tasks\n" > Rakefile && \
     \
     # 4c. Force create package.json with standard Rails JS dependencies
-    echo '{"name":"auth-service","private":true,"dependencies":{"@rails/actioncable":"^6.0.0","@rails/activestorage":"^6.0.0","@rails/ujs":"^6.0.0","@rails/webpacker":"5.4.4","turbolinks":"^5.2.0","webpack":"^4.46.0","webpack-cli":"^3.3.12"},"devDependencies":{"webpack-dev-server":"^3.11.2"}}' > package.json && \
+    printf '{"name":"auth-service","private":true,"dependencies":{"@rails/actioncable":"^6.0.0","@rails/activestorage":"^6.0.0","@rails/ujs":"^6.0.0","@rails/webpacker":"5.4.4","turbolinks":"^5.2.0","webpack":"^4.46.0","webpack-cli":"^3.3.12"},"devDependencies":{"webpack-dev-server":"^3.11.2"}}\n' > package.json && \
     \
     # 4d. Force create webpacker.yml
-    echo "default: &default\n  source_path: app/javascript\n  source_entry_path: packs\n  public_root_path: public\n  public_output_path: packs\n  cache_path: tmp/webpacker\n  check_yarn_integrity: false\n\nproduction:\n  <<: *default\n  compile: false\n  extract_css: true\n  cache_manifest: true" > config/webpacker.yml && \
+    printf "default: &default\n  source_path: app/javascript\n  source_entry_path: packs\n  public_root_path: public\n  public_output_path: packs\n  cache_path: tmp/webpacker\n  check_yarn_integrity: false\n\nproduction:\n  <<: *default\n  compile: false\n  extract_css: true\n  cache_manifest: true\n" > config/webpacker.yml && \
     \
-    # 4e. Force create Webpack environment files
-    echo "const { webpackConfig } = require('@rails/webpacker')\nmodule.exports = webpackConfig" > config/webpack/base.js && \
-    echo "process.env.NODE_ENV = process.env.NODE_ENV || 'production'\nconst webpackConfig = require('./base')\nmodule.exports = webpackConfig" > config/webpack/production.js && \
+    # 4e. Force create Webpack environment files (Resolves the ./src error)
+    printf "const { webpackConfig } = require('@rails/webpacker')\nmodule.exports = webpackConfig\n" > config/webpack/base.js && \
+    printf "process.env.NODE_ENV = process.env.NODE_ENV || 'production'\nconst webpackConfig = require('./base')\nmodule.exports = webpackConfig\n" > config/webpack/production.js && \
     \
-    # 4f. Force create JS entry point
-    echo "import Rails from '@rails/ujs'\nRails.start()" > app/javascript/packs/application.js && \
+    # 4f. Force create JS entry point (the 'Pack')
+    printf "import Rails from '@rails/ujs'\nRails.start()\n" > app/javascript/packs/application.js && \
     \
     # 4g. Install JS dependencies and create Webpacker binstubs
     yarn install --check-files && \
     bundle exec rails webpacker:binstubs && \
     \
     # 4h. Force fix the manifest.js
-    echo "//= link_tree ../images\n//= link_tree ../stylesheets\n//= link_tree ../javascripts\n//= link_tree ../builds" > app/assets/config/manifest.js && \
+    printf "//= link_tree ../images\n//= link_tree ../stylesheets\n//= link_tree ../javascripts\n//= link_tree ../builds\n" > app/assets/config/manifest.js && \
     \
     # 4i. Create .keep files to ensure directories are recognized
     touch app/assets/images/.keep app/assets/stylesheets/.keep app/assets/javascripts/.keep app/assets/builds/.keep && \
     \
     # 4j. Force fix Tailwind v4 and Font stubs
-    echo "@tailwind base;\n@tailwind components;\n@tailwind utilities;" > app/assets/tailwind/application.css && \
-    echo "@tailwind base;\n@tailwind components;\n@tailwind utilities;" > app/assets/tailwind/tailwind.css && \
-    echo "/* Inter Font Stub */" > app/assets/stylesheets/inter-font.css && \
+    printf "@tailwind base;\n@tailwind components;\n@tailwind utilities;\n" > app/assets/tailwind/application.css && \
+    printf "@tailwind base;\n@tailwind components;\n@tailwind utilities;\n" > app/assets/tailwind/tailwind.css && \
+    printf "/* Inter Font Stub */\n" > app/assets/stylesheets/inter-font.css && \
     \
-    # 4k. ASSETS: Precompile (Now with every file and directory it needs)
+    # 4k. ASSETS: Precompile (Now with every file and directory perfectly formatted)
     SECRET_KEY_BASE=dummy_key_for_build RAILS_ENV=production NODE_ENV=production bundle exec rails assets:precompile && \
     \
     # Finalize permissions
