@@ -26,8 +26,7 @@ COPY --chown=rails:rails . .
 # We force every missing file to exist with correct formatting
 # 4. SIMPLIFIED ASSET PRECOMPILATION
 RUN bundle binstubs railties --force && \
-    bundle exec rails webpacker:binstubs && \
-    yarn install --check-files && \
+    yarn install --frozen-lockfile && \
     SECRET_KEY_BASE=dummy_key_for_build \
     RAILS_ENV=production \
     NODE_ENV=production \
