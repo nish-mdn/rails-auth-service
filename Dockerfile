@@ -22,24 +22,39 @@ RUN bundle config set without 'development test' && \
 # 3. COPY APPLICATION CODE
 COPY --chown=rails:rails . .
 
-# 4. THE ASSET & PERMISSION FIX (Formatting corrected for shell execution)
-RUN bundle binstubs railties --force && \
-    bundle exec rails webpacker:binstubs && \
-    if [ ! -f Rakefile ]; then \
+# 4. THE MASTER ASSET & CONFIGURATION FIX
+RUN if [ ! -f Rakefile ]; then \
       echo "require_relative 'config/application'\nRails.application.load_tasks" > Rakefile; \
     fi && \
+    \
+    # 4b. Fix Webpacker Config if missing (Prevents: config/webpacker.yml not found) \
+    if [ ! -f config/webpacker.yml ]; then \
+      bundle exec rails webpacker:install; \
+    fi && \
+    \
+    # 4c. Generate all binstubs \
+    bundle binstubs railties --force && \
+    bundle exec rails webpacker:binstubs && \
+    \
+    # 4d. Create asset directories and manifest \
     mkdir -p app/assets/config app/assets/images app/assets/stylesheets \
              app/assets/javascripts app/assets/builds app/assets/tailwind \
-             app/javascript/controllers vendor/javascript && \
+             app/javascript/packs vendor/javascript && \
     touch app/assets/images/.keep app/assets/stylesheets/.keep \
           app/assets/javascripts/.keep app/assets/builds/.keep && \
     echo "//= link_tree ../images\n//= link_tree ../stylesheets\n//= link_tree ../javascripts\n//= link_tree ../builds" > app/assets/config/manifest.js && \
+    \
+    # 4e. Fix Tailwind v4 and Font stubs \
     echo "@tailwind base;\n@tailwind components;\n@tailwind utilities;" > app/assets/tailwind/application.css && \
     echo "@tailwind base;\n@tailwind components;\n@tailwind utilities;" > app/assets/tailwind/tailwind.css && \
     if [ ! -f app/assets/stylesheets/inter-font.css ]; then \
       echo "/* Inter Font Stub */" > app/assets/stylesheets/inter-font.css; \
     fi && \
+    \
+    # 4f. ASSETS: Precompile (Now with both Sprockets and Webpacker config) \
     SECRET_KEY_BASE=dummy_key_for_build RAILS_ENV=production NODE_ENV=production bundle exec rails assets:precompile && \
+    \
+    # 4g. PERMISSIONS: Finalize for the rails user \
     chmod +x bin/* && \
     mkdir -p log tmp/pids tmp/cache tmp/sockets keys && \
     chown -R rails:rails /app
@@ -50,6 +65,7 @@ ENV RAILS_ENV=production \
     RAILS_SERVE_STATIC_FILES=true \
     PATH=/app/bin:$PATH
 
+# Ensure entrypoint is executable
 RUN chmod +x /app/docker-entrypoint.sh
 
 USER rails
