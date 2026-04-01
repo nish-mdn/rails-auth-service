@@ -1,7 +1,7 @@
-# Single-stage Dockerfile for Rails Auth Service (PennyWise) [cite: 1]
+# Single-stage Dockerfile for Rails Auth Service (PennyWise)
 FROM public.ecr.aws/docker/library/ruby:3.2.0-slim
 
-# 1. INSTALL SYSTEM DEPENDENCIES (Node 20, Yarn, MariaDB) 
+# 1. INSTALL SYSTEM DEPENDENCIES
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
     build-essential git libmariadb-dev pkg-config libmariadb3 default-mysql-client curl gnupg \
     && mkdir -p /etc/apt/keyrings \
@@ -14,7 +14,7 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends \
 RUN useradd -m -u 1000 rails
 WORKDIR /app
 
-# 2. INSTALL GEMS (Ensure Gemfile.lock is NOT in .dockerignore)
+# 2. INSTALL GEMS
 COPY --chown=rails:rails Gemfile Gemfile.lock* ./
 RUN bundle config set without 'development test' && \
     bundle install --jobs 4 --retry 3
@@ -22,40 +22,25 @@ RUN bundle config set without 'development test' && \
 # 3. COPY APPLICATION CODE
 COPY --chown=rails:rails . .
 
-# 4. THE ASSET & PERMISSION FIX [cite: 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
-RUN # Generate binstubs for both Rails and Webpacker \
-    bundle binstubs railties webpacker --force && \
-    \
-    # Fix Rakefile if missing \
+# 4. THE ASSET & PERMISSION FIX (Internal comments removed to prevent shell skipping)
+RUN bundle binstubs railties webpacker --force && \
     if [ ! -f Rakefile ]; then \
       echo "require_relative 'config/application'\nRails.application.load_tasks" > Rakefile; \
     fi && \
-    \
-    # Create all required asset directories \
     mkdir -p app/assets/config app/assets/images app/assets/stylesheets \
              app/assets/javascripts app/assets/builds app/assets/tailwind \
              app/javascript/controllers vendor/javascript && \
     touch app/assets/images/.keep app/assets/stylesheets/.keep \
           app/assets/javascripts/.keep app/assets/builds/.keep && \
-    \
-    # Update manifest.js to include the 'builds' folder \
     echo "//= link_tree ../images\n//= link_tree ../stylesheets\n//= link_tree ../javascripts\n//= link_tree ../builds" > app/assets/config/manifest.js && \
-    \
-    # Create both application.css (v4 default) and tailwind.css (Layout requirement) \
     echo "@tailwind base;\n@tailwind components;\n@tailwind utilities;" > app/assets/tailwind/application.css && \
     echo "@tailwind base;\n@tailwind components;\n@tailwind utilities;" > app/assets/tailwind/tailwind.css && \
-    \
-    # Stub inter-font.css so the layout doesn't crash \
     if [ ! -f app/assets/stylesheets/inter-font.css ]; then \
       echo "/* Inter Font Stub */" > app/assets/stylesheets/inter-font.css; \
     fi && \
-    \
-    # ASSETS: Precompile for production \
     SECRET_KEY_BASE=dummy_key_for_build \
     RAILS_ENV=production NODE_ENV=production \
     bundle exec rails assets:precompile && \
-    \
-    # PERMISSIONS: Finalize \
     chmod +x bin/* && \
     mkdir -p log tmp/pids tmp/cache tmp/sockets keys && \
     chown -R rails:rails /app
@@ -66,13 +51,13 @@ ENV RAILS_ENV=production \
     RAILS_SERVE_STATIC_FILES=true \
     PATH=/app/bin:$PATH
 
-# Ensure entrypoint is executable [cite: 18]
+# Ensure entrypoint is executable
 RUN chmod +x /app/docker-entrypoint.sh
 
 USER rails
 EXPOSE 3000
 
-# 6. HEALTH CHECK [cite: 19]
+# 6. HEALTH CHECK
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD curl -f http://localhost:3000/health || exit 1
 
