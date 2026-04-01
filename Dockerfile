@@ -23,8 +23,15 @@ RUN bundle config set without 'development test' && \
 COPY --chown=rails:rails . .
 
 # 4. THE ULTIMATE "BRUTE-FORCE" ASSET & CONFIG FIX
-# We force every missing file to exist so the build cannot fail
-RUN mkdir -p config/webpack app/javascript/packs app/assets/config app/assets/builds app/assets/tailwind bin && \
+# This block creates EVERY directory and file required to prevent "nonexistent directory" errors.
+RUN mkdir -p bin config/webpack \
+             app/javascript/packs \
+             app/assets/config \
+             app/assets/images \
+             app/assets/stylesheets \
+             app/assets/javascripts \
+             app/assets/builds \
+             app/assets/tailwind && \
     \
     # 4a. Regenerate the MISSING bin/rails executable
     bundle binstubs railties --force && \
@@ -52,12 +59,15 @@ RUN mkdir -p config/webpack app/javascript/packs app/assets/config app/assets/bu
     # 4h. Force fix the manifest.js
     echo "//= link_tree ../images\n//= link_tree ../stylesheets\n//= link_tree ../javascripts\n//= link_tree ../builds" > app/assets/config/manifest.js && \
     \
-    # 4i. Force fix Tailwind v4 and Font stubs
+    # 4i. Create .keep files to ensure directories are recognized
+    touch app/assets/images/.keep app/assets/stylesheets/.keep app/assets/javascripts/.keep app/assets/builds/.keep && \
+    \
+    # 4j. Force fix Tailwind v4 and Font stubs
     echo "@tailwind base;\n@tailwind components;\n@tailwind utilities;" > app/assets/tailwind/application.css && \
     echo "@tailwind base;\n@tailwind components;\n@tailwind utilities;" > app/assets/tailwind/tailwind.css && \
     echo "/* Inter Font Stub */" > app/assets/stylesheets/inter-font.css && \
     \
-    # 4j. ASSETS: Precompile (Now with every file it needs)
+    # 4k. ASSETS: Precompile (Now with every file and directory it needs)
     SECRET_KEY_BASE=dummy_key_for_build RAILS_ENV=production NODE_ENV=production bundle exec rails assets:precompile && \
     \
     # Finalize permissions
