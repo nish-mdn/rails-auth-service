@@ -22,17 +22,13 @@ RUN bundle config set without 'development test' && \
 # 3. COPY APPLICATION CODE
 COPY --chown=rails:rails . .
 
-# 4. THE ULTIMATE "BRUTE-FORCE" ASSET & CONFIG FIX
-# We force every missing file to exist with correct formatting
-# 4. SIMPLIFIED ASSET PRECOMPILATION
-RUN bundle binstubs railties --force && \
+# 4. INSTALL YARN DEPS & PRECOMPILE ASSETS
+RUN mkdir -p bin log tmp/pids tmp/cache tmp/sockets keys && \
     yarn install --frozen-lockfile && \
     SECRET_KEY_BASE=dummy_key_for_build \
     RAILS_ENV=production \
     NODE_ENV=production \
     bundle exec rails assets:precompile && \
-    chmod +x bin/* && \
-    mkdir -p log tmp/pids tmp/cache tmp/sockets keys && \
     chown -R rails:rails /app
 
 # 5. ENVIRONMENT & USER SETTINGS
