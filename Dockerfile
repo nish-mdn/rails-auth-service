@@ -28,6 +28,7 @@ RUN mkdir -p log tmp/pids tmp/cache tmp/sockets keys && \
     SECRET_KEY_BASE=dummy_key_for_build \
     RAILS_ENV=production \
     NODE_ENV=production \
+    bundle exec rails webpacker:install && \
     bundle exec rails assets:precompile && \
     chown -R rails:rails /app
 
