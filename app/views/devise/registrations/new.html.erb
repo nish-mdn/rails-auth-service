@@ -53,6 +53,9 @@
         <span class="spinner"></span>Creating account...
       </div>
     </div>
+
+    <!-- Generic error message display -->
+    <div class="error-message" id="genericError"></div>
   </form>
 
   <div class="toggle-link">
@@ -133,19 +136,35 @@
           window.location.href = '/';
         }, 1000);
       } else {
+        // Clear any previous generic errors
+        document.getElementById('genericError').classList.remove('show');
+        document.getElementById('genericError').textContent = '';
+
         if (data.errors && Array.isArray(data.errors)) {
+          let hasDisplayedError = false;
           data.errors.forEach(error => {
             if (error.includes('Email')) {
               document.getElementById('emailError').textContent = error;
               document.getElementById('emailError').classList.add('show');
+              hasDisplayedError = true;
             } else if (error.includes('Password')) {
               document.getElementById('passwordError').textContent = error;
               document.getElementById('passwordError').classList.add('show');
+              hasDisplayedError = true;
+            } else {
+              // For any other validation error (including jti, uniqueness, etc)
+              document.getElementById('genericError').textContent += (document.getElementById('genericError').textContent ? '\n' : '') + error;
+              hasDisplayedError = true;
             }
           });
+          
+          // If there are other errors, display them in the generic error box
+          if (document.getElementById('genericError').textContent) {
+            document.getElementById('genericError').classList.add('show');
+          }
         } else {
-          document.getElementById('emailError').textContent = data.message || 'Signup failed';
-          document.getElementById('emailError').classList.add('show');
+          document.getElementById('genericError').textContent = data.message || 'Signup failed';
+          document.getElementById('genericError').classList.add('show');
         }
       }
     } catch (error) {

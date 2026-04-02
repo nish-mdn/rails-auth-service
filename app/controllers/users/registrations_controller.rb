@@ -7,6 +7,9 @@ module Users
     def create
       build_resource(sign_up_params)
 
+      # Ensure JTI is set before save
+      resource.jti = SecureRandom.uuid if resource.jti.blank?
+
       if resource.save
         token = JwtService.encode({ user_id: resource.id, jti: resource.jti })
         
@@ -17,9 +20,16 @@ module Users
           user: user_json(resource)
         }, status: :created
       else
+        # Collect all validation errors
+        errors = resource.errors.full_messages
+        
+        # Log errors for debugging (optional)
+        Rails.logger.warn("User registration failed: #{errors.inspect}")
+        
         render json: {
           status: :unprocessable_entity,
-          errors: resource.errors.full_messages
+          errors: errors,
+          message: errors.first
         }, status: :unprocessable_entity
       end
     end
