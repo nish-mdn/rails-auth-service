@@ -23,16 +23,31 @@ RUN bundle config set without 'development test' && \
 COPY --chown=rails:rails . .
 
 # 4. INSTALL YARN DEPS & PRECOMPILE ASSETS
+# RUN mkdir -p log tmp/pids tmp/cache tmp/sockets keys && \
+#     yarn install --frozen-lockfile && \
+#     SECRET_KEY_BASE=dummy_key_for_build \
+#     RAILS_ENV=production \
+#     NODE_ENV=production \
+#     NODE_OPTIONS=--openssl-legacy-provider \
+#     yarn add @babel/plugin-proposal-private-methods @babel/plugin-proposal-class-properties --dev && \
+#     bundle exec rails webpacker:install && \
+#     bundle exec rails assets:precompile && \
+#     chown -R rails:rails /app
+
+# 1. Setup directories and install base JS dependencies
 RUN mkdir -p log tmp/pids tmp/cache tmp/sockets keys && \
-    yarn install --frozen-lockfile && \
-    SECRET_KEY_BASE=dummy_key_for_build \
+    yarn install --frozen-lockfile
+
+# 2. Apply Babel fixes and Precompile in one clean environment
+RUN SECRET_KEY_BASE=dummy_key_for_build \
     RAILS_ENV=production \
     NODE_ENV=production \
     NODE_OPTIONS=--openssl-legacy-provider \
-    yarn add @babel/plugin-proposal-private-methods @babel/plugin-proposal-class-properties --dev && \
-    bundle exec rails webpacker:install && \
-    bundle exec rails assets:precompile && \
-    chown -R rails:rails /app
+    sh -c 'yarn add @babel/plugin-proposal-private-methods @babel/plugin-proposal-class-properties @babel/plugin-proposal-private-property-in-object --dev && \
+    bundle exec rails assets:precompile'
+
+# 3. Final permissions
+RUN chown -R rails:rails /app
 
 # 5. ENVIRONMENT & USER SETTINGS
 ENV RAILS_ENV=production \
