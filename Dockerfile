@@ -43,8 +43,7 @@ RUN SECRET_KEY_BASE=dummy_key_for_build \
     RAILS_ENV=production \
     NODE_ENV=production \
     NODE_OPTIONS=--openssl-legacy-provider \
-    sh -c 'yarn add @babel/plugin-proposal-private-methods @babel/plugin-proposal-class-properties @babel/plugin-proposal-private-property-in-object --dev && \
-    bundle exec rails assets:precompile'
+    bundle exec rails assets:precompile
 
 # 3. Final permissions
 RUN chown -R rails:rails /app
