@@ -11,6 +11,9 @@ Rails.application.routes.draw do
     end
   end
 
+  # Custom signup route for backward compatibility
+  post 'users/sign_up', to: 'users/registrations#create'
+
   # Root path
   root 'pages#home'
 

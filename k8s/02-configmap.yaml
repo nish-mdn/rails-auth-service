@@ -40,4 +40,4 @@ data:
   # S3_BUCKET_NAME is used by app/services/s3_service.rb.
   # No access keys here — credentials come from the IRSA projected token.
   AWS_REGION: "us-east-1"
-  S3_BUCKET_NAME: "your-actual-app-s3-bucket"
+  S3_BUCKET_NAME: "mdn-labs-auth-service"

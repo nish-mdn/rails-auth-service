@@ -14,6 +14,13 @@ class ApplicationController < ActionController::Base
   private
 
   def set_default_format
-    request.format = :json if request.xhr? || request.path.start_with?('/api')
+    # Set JSON format for API calls, XHR requests, or JSON Content-Type
+    if request.xhr? || request.path.start_with?('/api') || json_request?
+      request.format = :json
+    end
+  end
+
+  def json_request?
+    request.content_type&.include?('application/json')
   end
 end
