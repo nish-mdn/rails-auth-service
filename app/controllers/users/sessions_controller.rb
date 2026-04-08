@@ -15,7 +15,7 @@ module Users
         
         render json: {
           status: :ok,
-          message: 'Logged in successfully',
+          message: 'Logged in successfully msg changed',
           token: token,
           user: user_json(user)
         }, status: :ok
