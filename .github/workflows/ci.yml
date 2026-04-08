@@ -80,9 +80,10 @@ jobs:
           IMAGE_NAME="${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}"
           NEW_TAG="${{ steps.vars.outputs.IMAGE_TAG }}"
           
-          # Use yq to update the image field specifically for the blog-app deployment
+          # Use yq to update the image field specifically for the auth-app deployment
           # This targets the first container in the deployment spec
-          yq eval ".spec.template.spec.containers[0].image = \"$IMAGE_NAME:$NEW_TAG\"" -i auth-app/06-application.yaml         
+          #yq eval ".spec.template.spec.containers[0].image = \"$IMAGE_NAME:$NEW_TAG\"" -i auth-app/06-application.yaml
+          yq eval 'select(.kind == "Deployment").spec.template.spec.containers[0].image = "'$IMAGE_NAME':'$NEW_TAG'"' -i auth-app/06-application.yaml         
           # Best practice: Configure identity before commit
 
           git config user.name "github-actions[bot]"
