@@ -1,0 +1,93 @@
+name: Build and Push to ECR
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write   # Required for OIDC federation with AWS
+  contents: read     # Required for actions/checkout
+
+jobs:
+  build-and-push:
+    if: github.actor == github.repository_owner
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: us-east-1
+      ECR_REPOSITORY: mdn-auth-service
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-session-name: github-actions-rails-auth-service
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image tag
+        id: vars
+        run: echo "IMAGE_TAG=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Docker image
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ steps.vars.outputs.IMAGE_TAG }}
+        run: |
+          docker build -t $REGISTRY/$ECR_REPOSITORY:latest .
+          docker tag $REGISTRY/$ECR_REPOSITORY:latest $REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Push Docker image
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ steps.vars.outputs.IMAGE_TAG }}
+        run: |
+          docker push $REGISTRY/$ECR_REPOSITORY:latest
+          docker push $REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Generate Token to authorize github app to access manifest repo
+        id: generate_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.MANIFEST_APP_ID }}
+          private_key: ${{ secrets.MANIFEST_APP_PRIVATE_KEY }}
+          # EXPLICITLY set the target repo details here
+          owner: nish-mdn
+          repositories: k8s-deploy-play
+
+      - name: Checkout Manifest Repo
+        uses: actions/checkout@v4
+        with:
+          repository: nish-mdn/k8s-deploy-play # Path to manifest repo
+          token: ${{ steps.generate_token.outputs.token }}
+          path: manifest-repo
+
+      - name: Update Image Tag
+        run: |
+          cd manifest-repo
+          
+          # Define your ECR image path
+          # You can also pass these as env variables
+          IMAGE_NAME="${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}"
+          NEW_TAG="${{ steps.vars.outputs.IMAGE_TAG }}"
+          
+          # Use yq to update the image field specifically for the blog-app deployment
+          # This targets the first container in the deployment spec
+          yq eval ".spec.template.spec.containers[0].image = \"$IMAGE_NAME:$NEW_TAG\"" -i auth-app/06-application.yaml         
+          # Best practice: Configure identity before commit
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          git add .
+          git commit -m "deploy: update image to ${NEW_TAG}"
+          git push origin main
