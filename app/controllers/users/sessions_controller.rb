@@ -15,7 +15,7 @@ module Users
         
         render json: {
           status: :ok,
-          message: 'Logged in successfully from argocd deployments',
+          message: 'Logged in successfully from argocd deployments on 16/04',
           token: token,
           user: user_json(user)
         }, status: :ok

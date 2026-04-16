@@ -25,7 +25,9 @@ gem "rack-cors"
 
 # Styling
 gem "tailwindcss-rails"
-
+gem 'opentelemetry-sdk'
+gem 'opentelemetry-exporter-otlp'
+gem 'opentelemetry-instrumentation-all'
 # Development and Testing
 group :development, :test do
   gem "byebug", platforms: [:mri, :mingw, :x64_mingw]
