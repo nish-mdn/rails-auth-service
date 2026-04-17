@@ -32,9 +32,9 @@ if rails_env == 'production'
   workers Integer(ENV['WEB_CONCURRENCY'] || `nproc`)
   
   # Logging
-  stdout_redirect ENV['LOG_PATH'] || '/app/log/puma.log',
-                  ENV['LOG_ERR_PATH'] || '/app/log/puma.err.log',
-                  true
+ # stdout_redirect ENV['LOG_PATH'] || '/app/log/puma.log',
+ #                 ENV['LOG_ERR_PATH'] || '/app/log/puma.err.log',
+ #                 true
   
   # Application preloading
   preload_app!
